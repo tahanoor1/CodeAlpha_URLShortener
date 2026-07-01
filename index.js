@@ -1,79 +1,36 @@
-const express=require("express");
-const path=require("path");
-const cookieParser=require("cookie-parser");
+const express= require("express");
+const path= require("path");
+const {connectMongoDb}= require("./connect");
+const eventRoute= require("./routes/event");
+const registrationRoute = require("./routes/registration");
 
-const {connectToMongoDB}=require("./connect");
-// const {restrictToLoggedinUserOnly}=require("./middleware/auth");
-const { checkForAuthentication,restrictTo}=require("./middleware/auth");
+const app= express();
+const PORT= 8000;
 
-const URL=require("./models/url");
+// MongoDb Connection:
+connectMongoDb("mongodb://localhost:27017/Event_Registration")
+.then(()=> console.log("MongoDb Connected"))
+.catch((err)=> console.log(err));
 
-const urlRoute=require("./routes/url");
-const staticRoute=require("./routes/staticRouter");
-const userRoute=require("./routes/user")
-
-const app=express();
-const PORT=8001;
- 
-// connect mongoDB:
-connectToMongoDB("mongodb://localhost:27017/short-url")
-.then(()=>console.log("Mongodb Connected"));
-
-// Set the view engine:
 app.set("view engine","ejs");
-app.set("views",path.resolve("./views"));
+app.set("views", path.resolve("./views"));
 
-//Middleware:
-app.use(cookieParser());
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(express.urlencoded({extended:false}));
-app.use(checkForAuthentication);
 
-//URL redirect route (protected properly):
+app.use("/events", (req, res, next) => {
+  console.log("Events Route Hit");
+  next();
+});
 
+app.use("/events", eventRoute);
+app.use("/registrations", registrationRoute);
 
-app.get("/url/:shortId", checkForAuthentication,async(req,res)=>{
-    const shortId=req.params.shortId;
-   const entry= await URL.findOneAndUpdate({
-        shortId,
-    },
-    {
-     $push:{
-        visitHistory: {timestamp: Date.now()},  
-    
-    },
-    
-}
-
-);
-  return res.redirect(entry.redirectURL);
+app.get("/", (req,res)=>{
+    res.send("Event Registration is Running....");
 });
 
 
-
-
-
-// AUTH middleware (must be before routes):
-
-
-
-
-
-// // use res.render to load up an ejs view file
-// app.get("/test",  async(req, res) => {
-//     const allUrls = await URL.find({});
-//  return res.render("home",{
-//   urls: allUrls
-//  });
-      
-// });
-
-// Routes:
-// app.use("/url",restrictToLoggedinUserOnly,urlRoute);
-app.use("/url",restrictTo(["NORMAL"]),urlRoute);
-app.use("/user",userRoute);
-app.use("/",staticRoute);
-
-//Server Start:
-
-app.listen(PORT,()=>console.log(`Server Started at PORT:${PORT}`))
+app.listen(PORT, ()=>{
+    console.log(`server started at PORT ${PORT}`);
+});
